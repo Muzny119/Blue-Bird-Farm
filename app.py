@@ -82,15 +82,15 @@ with tab1:
     col1, col2 = st.columns(2)
     
     with col1:
-        vendor_name = st.text_input("Vendor Name", placeholder="e.g. John Poultry")
-        live_weight_in = st.number_input("Total Live Weight Bought (Kg)", min_value=0.1, value=50.0, step=1.0)
+        vendor_name = st.text_input("Vendor Name", placeholder="e.g. John Poultry", key="purchase_vendor_input")
+        live_weight_in = st.number_input("Total Live Weight Bought (Kg)", min_value=0.1, value=50.0, step=1.0, key="purchase_weight_input")
     
     with col2:
-        buy_rate = st.number_input("Purchase Rate per Kg (Rs)", min_value=1.0, value=180.0, step=5.0)
+        buy_rate = st.number_input("Purchase Rate per Kg (Rs)", min_value=1.0, value=180.0, step=5.0, key="purchase_rate_input")
         purchase_total = live_weight_in * buy_rate
         st.subheader(f"Total Purchase Cost: Rs. {purchase_total:.2f}")
 
-    if st.button("Save Purchase Entry", use_container_width=True):
+    if st.button("Save Purchase Entry", use_container_width=True, key="save_purchase_btn"):
         if vendor_name.strip() == "":
             st.error("Please enter Vendor Name!")
         else:
@@ -112,9 +112,9 @@ with tab2:
     col_p1, col_p2 = st.columns(2)
     
     with col_p1:
-        live_used = st.number_input("Live Weight Taken for Cleaning (Kg)", min_value=0.1, value=10.0, step=0.5)
+        live_used = st.number_input("Live Weight Taken for Cleaning (Kg)", min_value=0.1, value=10.0, step=0.5, key="proc_live_used")
         default_skinless = round(live_used * 0.70, 2)
-        skinless_produced = st.number_input("Actual Skinless Chicken Obtained (Kg)", min_value=0.1, value=default_skinless, step=0.1)
+        skinless_produced = st.number_input("Actual Skinless Chicken Obtained (Kg)", min_value=0.1, value=default_skinless, step=0.1, key="proc_skinless_got")
     
     with col_p2:
         waste_loss = round(live_used - skinless_produced, 2)
@@ -123,7 +123,7 @@ with tab2:
             yield_pct = round((skinless_produced / live_used) * 100, 1)
             st.info(f"Yield Efficiency: **{yield_pct}%** Skinless output")
 
-    if st.button("Save Processing Record", use_container_width=True):
+    if st.button("Save Processing Record", use_container_width=True, key="save_proc_btn"):
         conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
         c.execute("INSERT INTO processing (date, live_weight_used, skinless_weight_produced, waste_loss) VALUES (date('now'), ?, ?, ?)",
@@ -141,17 +141,17 @@ with tab3:
     col_s1, col_s2 = st.columns(2)
     
     with col_s1:
-        customer_name = st.text_input("Customer Name", value="Cash Customer")
-        sale_type = st.selectbox("Item Sold", ["Skinless Chicken", "Live Chicken", "Chicken Parts / Other"])
-        sell_weight = st.number_input("Weight Sold (Kg)", min_value=0.1, value=1.0, step=0.1)
+        customer_name = st.text_input("Customer Name", value="Cash Customer", key="sale_cust_input")
+        sale_type = st.selectbox("Item Sold", ["Skinless Chicken", "Live Chicken", "Chicken Parts / Other"], key="sale_type_input")
+        sell_weight = st.number_input("Weight Sold (Kg)", min_value=0.1, value=1.0, step=0.1, key="sale_wt_input")
 
     with col_s2:
-        sell_rate = st.number_input("Selling Rate per Kg (Rs)", min_value=1.0, value=260.0, step=5.0)
+        sell_rate = st.number_input("Selling Rate per Kg (Rs)", min_value=1.0, value=260.0, step=5.0, key="sale_rate_input")
         sale_total = sell_weight * sell_rate
         st.subheader(f"Total Bill: Rs. {sale_total:.2f}")
-        payment_method = st.radio("Payment Method", ["Cash", "Online/Bank Transfer", "Credit (Kadan)"])
+        payment_method = st.radio("Payment Method", ["Cash", "Online/Bank Transfer", "Credit (Kadan)"], key="sale_pay_radio")
 
-    if st.button("Save Customer Sale Bill", use_container_width=True):
+    if st.button("Save Customer Sale Bill", use_container_width=True, key="save_sale_btn"):
         conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
         c.execute("INSERT INTO sales (date, customer_name, item_type, weight, rate, total, payment_method) VALUES (date('now'), ?, ?, ?, ?, ?, ?)",
@@ -169,13 +169,13 @@ with tab4:
     col_e1, col_e2 = st.columns(2)
     
     with col_e1:
-        exp_category = st.selectbox("Expense Category", ["Transport / Fuel", "Shop Rent", "Electricity / Water", "Salary / Labor", "Feed / Bags", "Other Expenses"])
-        exp_amount = st.number_input("Amount Paid (Rs)", min_value=1.0, value=100.0, step=10.0)
+        exp_category = st.selectbox("Expense Category", ["Transport / Fuel", "Shop Rent", "Electricity / Water", "Salary / Labor", "Feed / Bags", "Other Expenses"], key="exp_cat_input")
+        exp_amount = st.number_input("Amount Paid (Rs)", min_value=1.0, value=100.0, step=10.0, key="exp_amt_input")
         
     with col_e2:
-        exp_note = st.text_input("Note / Details", placeholder="e.g. Transport van fuel")
+        exp_note = st.text_input("Note / Details", placeholder="e.g. Transport van fuel", key="exp_note_input")
 
-    if st.button("Save Expense Entry", use_container_width=True):
+    if st.button("Save Expense Entry", use_container_width=True, key="save_exp_btn"):
         conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
         c.execute("INSERT INTO expenses (date, category, amount, note) VALUES (date('now'), ?, ?, ?)",
@@ -230,11 +230,11 @@ with tab5:
     p3.metric("🗑️ Total Cleaning Loss", f"{total_waste_loss} Kg")
 
 # ---------------------------------------------------------
-# TAB 6: EDIT & DELETE ENTRIES (NEW FEATURE)
+# TAB 6: EDIT & DELETE ENTRIES
 # ---------------------------------------------------------
 with tab6:
     st.header("✏️ Edit or Delete Previous Entries")
-    manage_option = st.selectbox("Select Record Type to Edit / Delete:", ["Customer Sales", "Vendor Purchases", "Expenses"])
+    manage_option = st.selectbox("Select Record Type to Edit / Delete:", ["Customer Sales", "Vendor Purchases", "Expenses"], key="manage_opt_select")
 
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
@@ -245,31 +245,31 @@ with tab6:
         
         if records:
             options = {f"ID #{r[0]} - {r[1]} - {r[2]} (Rs.{r[6]})": r for r in records}
-            selected = st.selectbox("Choose Sale Entry to Edit/Delete:", list(options.keys()))
+            selected = st.selectbox("Choose Sale Entry to Edit/Delete:", list(options.keys()), key="edit_sale_select")
             data = options[selected]
             
             st.markdown("---")
             col_e1, col_e2 = st.columns(2)
             with col_e1:
-                edit_cust = st.text_input("Customer Name", value=data[2])
-                edit_item = st.selectbox("Item", ["Skinless Chicken", "Live Chicken", "Chicken Parts / Other"], index=0)
-                edit_wt = st.number_input("Weight (Kg)", value=float(data[4]), step=0.1)
+                edit_cust = st.text_input("Customer Name", value=data[2], key="edit_sale_cust")
+                edit_item = st.selectbox("Item", ["Skinless Chicken", "Live Chicken", "Chicken Parts / Other"], index=0, key="edit_sale_item")
+                edit_wt = st.number_input("Weight (Kg)", value=float(data[4]), step=0.1, key="edit_sale_wt")
             with col_e2:
-                edit_rate = st.number_input("Rate (Rs)", value=float(data[5]), step=5.0)
-                edit_pay = st.radio("Payment Method", ["Cash", "Online/Bank Transfer", "Credit (Kadan)"], index=0)
+                edit_rate = st.number_input("Rate (Rs)", value=float(data[5]), step=5.0, key="edit_sale_rate")
+                edit_pay = st.radio("Payment Method", ["Cash", "Online/Bank Transfer", "Credit (Kadan)"], index=0, key="edit_sale_pay_radio")
                 new_total = edit_wt * edit_rate
                 st.caption(f"Updated Total: Rs. {new_total:.2f}")
 
             c1, c2 = st.columns(2)
             with c1:
-                if st.button("💾 Update Sale Record", use_container_width=True):
+                if st.button("💾 Update Sale Record", use_container_width=True, key="update_sale_btn"):
                     c.execute("UPDATE sales SET customer_name=?, item_type=?, weight=?, rate=?, total=?, payment_method=? WHERE id=?",
                               (edit_cust, edit_item, edit_wt, edit_rate, new_total, edit_pay, data[0]))
                     conn.commit()
                     st.success("Sale entry updated successfully! 🎉")
                     st.rerun()
             with c2:
-                if st.button("🗑️ Delete Sale Record", type="primary", use_container_width=True):
+                if st.button("🗑️ Delete Sale Record", type="primary", use_container_width=True, key="del_sale_btn"):
                     c.execute("DELETE FROM sales WHERE id=?", (data[0],))
                     conn.commit()
                     st.warning("Sale entry deleted! 🗑️")
@@ -283,29 +283,29 @@ with tab6:
         
         if records:
             options = {f"ID #{r[0]} - {r[1]} - {r[2]} (Rs.{r[5]})": r for r in records}
-            selected = st.selectbox("Choose Purchase Entry to Edit/Delete:", list(options.keys()))
+            selected = st.selectbox("Choose Purchase Entry to Edit/Delete:", list(options.keys()), key="edit_pur_select")
             data = options[selected]
             
             st.markdown("---")
             col_p1, col_p2 = st.columns(2)
             with col_p1:
-                edit_vendor = st.text_input("Vendor Name", value=data[2])
-                edit_lwt = st.number_input("Live Weight (Kg)", value=float(data[3]), step=1.0)
+                edit_vendor = st.text_input("Vendor Name", value=data[2], key="edit_pur_vendor")
+                edit_lwt = st.number_input("Live Weight (Kg)", value=float(data[3]), step=1.0, key="edit_pur_wt")
             with col_p2:
-                edit_brate = st.number_input("Purchase Rate (Rs)", value=float(data[4]), step=5.0)
+                edit_brate = st.number_input("Purchase Rate (Rs)", value=float(data[4]), step=5.0, key="edit_pur_rate")
                 new_ptotal = edit_lwt * edit_brate
                 st.caption(f"Updated Total: Rs. {new_ptotal:.2f}")
 
             c1, c2 = st.columns(2)
             with c1:
-                if st.button("💾 Update Purchase Record", use_container_width=True):
+                if st.button("💾 Update Purchase Record", use_container_width=True, key="update_pur_btn"):
                     c.execute("UPDATE purchases SET vendor_name=?, live_weight=?, rate=?, total=? WHERE id=?",
                               (edit_vendor, edit_lwt, edit_brate, new_ptotal, data[0]))
                     conn.commit()
                     st.success("Purchase entry updated! 🎉")
                     st.rerun()
             with c2:
-                if st.button("🗑️ Delete Purchase Record", type="primary", use_container_width=True):
+                if st.button("🗑️ Delete Purchase Record", type="primary", use_container_width=True, key="del_pur_btn"):
                     c.execute("DELETE FROM purchases WHERE id=?", (data[0],))
                     conn.commit()
                     st.warning("Purchase entry deleted! 🗑️")
@@ -319,27 +319,27 @@ with tab6:
         
         if records:
             options = {f"ID #{r[0]} - {r[1]} - {r[2]} (Rs.{r[3]})": r for r in records}
-            selected = st.selectbox("Choose Expense Entry to Edit/Delete:", list(options.keys()))
+            selected = st.selectbox("Choose Expense Entry to Edit/Delete:", list(options.keys()), key="edit_exp_select")
             data = options[selected]
             
             st.markdown("---")
             col_ex1, col_ex2 = st.columns(2)
             with col_ex1:
-                edit_cat = st.selectbox("Category", ["Transport / Fuel", "Shop Rent", "Electricity / Water", "Salary / Labor", "Feed / Bags", "Other Expenses"])
-                edit_amt = st.number_input("Amount (Rs)", value=float(data[3]), step=10.0)
+                edit_cat = st.selectbox("Category", ["Transport / Fuel", "Shop Rent", "Electricity / Water", "Salary / Labor", "Feed / Bags", "Other Expenses"], key="edit_exp_cat")
+                edit_amt = st.number_input("Amount (Rs)", value=float(data[3]), step=10.0, key="edit_exp_amt")
             with col_ex2:
-                edit_note = st.text_input("Note", value=data[4] or "")
+                edit_note = st.text_input("Note", value=data[4] or "", key="edit_exp_note")
 
             c1, c2 = st.columns(2)
             with c1:
-                if st.button("💾 Update Expense Record", use_container_width=True):
+                if st.button("💾 Update Expense Record", use_container_width=True, key="update_exp_btn"):
                     c.execute("UPDATE expenses SET category=?, amount=?, note=? WHERE id=?",
                               (edit_cat, edit_amt, edit_note, data[0]))
                     conn.commit()
                     st.success("Expense entry updated! 🎉")
                     st.rerun()
             with c2:
-                if st.button("🗑️ Delete Expense Record", type="primary", use_container_width=True):
+                if st.button("🗑️ Delete Expense Record", type="primary", use_container_width=True, key="del_exp_btn"):
                     c.execute("DELETE FROM expenses WHERE id=?", (data[0],))
                     conn.commit()
                     st.warning("Expense entry deleted! 🗑️")
