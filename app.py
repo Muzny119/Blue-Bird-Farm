@@ -1,168 +1,206 @@
 import sqlite3
 import streamlit as st
 
-# Set Page Config
 st.set_page_config(page_title="Blue Bird Farm - Accounting", page_icon="🐔", layout="wide")
 
-# 1. Database Table Creation (Sales & Purchases)
+# Database Setup
 def init_db():
     conn = sqlite3.connect('farm.db')
     c = conn.cursor()
-    # Sales Table
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS sales (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            date TEXT,
-            customer_name TEXT,
-            item_name TEXT,
-            live_weight REAL,
-            cleaned_weight REAL,
-            rate REAL,
-            total REAL,
-            payment_method TEXT
-        )
-    ''')
-    # Vendor Purchase Table
+    
+    # 1. Vendor Purchases
     c.execute('''
         CREATE TABLE IF NOT EXISTS purchases (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             date TEXT,
             vendor_name TEXT,
-            weight REAL,
+            live_weight REAL,
             rate REAL,
             total REAL
         )
     ''')
+    
+    # 2. Customer Sales
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS sales (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT,
+            customer_name TEXT,
+            item_type TEXT,
+            weight REAL,
+            rate REAL,
+            total REAL,
+            payment_method TEXT
+        )
+    ''')
+    
+    # 3. Expenses
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS expenses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT,
+            category TEXT,
+            amount REAL,
+            note TEXT
+        )
+    ''')
+    
     conn.commit()
     conn.close()
 
 init_db()
 
-st.title("🐔 Blue Bird Farm - Daily Billing & Stock")
+st.title("🐔 Blue Bird Farm - Complete Business Dashboard")
 
-# Sidebar Tabs / Navigation
-tab1, tab2, tab3 = st.tabs(["🛒 New Customer Bill", "🚚 Vendor Purchase (Chicken Buying)", "📊 Sales & Purchase Reports"])
+# Navigation Tabs
+tab1, tab2, tab3, tab4 = st.tabs([
+    "🚚 1. Vendor Purchase", 
+    "🛒 2. Customer Sale", 
+    "💸 3. Daily Expenses", 
+    "📈 4. Profit & Loss Report"
+])
 
-# TAB 1: CUSTOMER BILLING
+# ---------------------------------------------------------
+# TAB 1: VENDOR PURCHASE
+# ---------------------------------------------------------
 with tab1:
-    st.header("📝 Customer Sales Entry")
-    
+    st.header("🚚 Vendor Live Chicken Purchase")
     col1, col2 = st.columns(2)
     
     with col1:
-        customer_name = st.text_input("Customer Name", value="Cash Customer")
-        item_type = st.selectbox("Item Type", ["Live Chicken (Skinless)", "Full Chicken (Live)", "Chicken Parts", "Eggs / Other"])
-        
-        live_weight = st.number_input("Live Weight (in Kg)", min_value=0.0, value=2.0, step=0.1)
-        
-        # Auto-suggest or manual cleaned weight
-        if "Skinless" in item_type:
-            # Approx 30% loss for skinless chicken
-            suggested_cleaned = round(live_weight * 0.70, 2)
-            cleaned_weight = st.number_input("Cleaned / Skinless Weight (in Kg)", min_value=0.0, value=suggested_cleaned, step=0.05)
-        else:
-            cleaned_weight = live_weight
-
+        vendor_name = st.text_input("Vendor Name", placeholder="e.g. John Poultry")
+        live_weight_in = st.number_input("Total Live Weight Bought (Kg)", min_value=0.1, value=50.0, step=1.0)
+    
     with col2:
-        rate = st.number_input("Rate per Kg (Rs)", min_value=1.0, value=240.0, step=5.0)
-        
-        # Calculate bill based on cleaned weight or live weight option
-        rate_basis = st.radio("Rate Applied On", ["Cleaned Weight", "Live Weight"])
-        
-        if rate_basis == "Cleaned Weight":
-            total_amount = cleaned_weight * rate
-        else:
-            total_amount = live_weight * rate
-            
-        st.markdown(f"### 💵 Total Amount: **Rs. {total_amount:.2f}**")
-        payment_method = st.radio("Payment Method", ["Cash", "Online/Bank Transfer", "Credit (Kadan)"])
+        buy_rate = st.number_input("Purchase Rate per Kg (Rs)", min_value=1.0, value=180.0, step=5.0)
+        purchase_total = live_weight_in * buy_rate
+        st.subheader(f"Total Purchase Cost: Rs. {purchase_total:.2f}")
 
-    if st.button("Save Sales Transaction", use_container_width=True):
-        conn = sqlite3.connect('farm.db')
-        c = conn.cursor()
-        c.execute('''
-            INSERT INTO sales (date, customer_name, item_name, live_weight, cleaned_weight, rate, total, payment_method)
-            VALUES (date('now'), ?, ?, ?, ?, ?, ?, ?)
-        ''', (customer_name, item_type, live_weight, cleaned_weight, rate, total_amount, payment_method))
-        conn.commit()
-        conn.close()
-        st.success(f"Sale recorded for {customer_name}! Total: Rs.{total_amount:.2f} 🎉")
-
-# TAB 2: VENDOR PURCHASES
-with tab2:
-    st.header("🚚 Vendor Purchase Entry (Buying Live Stock)")
-    
-    col_v1, col_v2 = st.columns(2)
-    
-    with col_v1:
-        vendor_name = st.text_input("Vendor / Supplier Name", placeholder="e.g. John Poultry / Farm A")
-        purchase_weight = st.number_input("Total Live Weight Bought (Kg)", min_value=0.1, value=50.0, step=1.0)
-        
-    with col_v2:
-        purchase_rate = st.number_input("Purchase Rate per Kg (Rs)", min_value=1.0, value=180.0, step=2.0)
-        purchase_total = purchase_weight * purchase_rate
-        st.markdown(f"### 🧾 Purchase Total: **Rs. {purchase_total:.2f}**")
-
-    if st.button("Save Purchase Record", use_container_width=True):
+    if st.button("Save Purchase Entry", use_container_width=True):
         if vendor_name.strip() == "":
-            st.error("Please enter a Vendor Name!")
+            st.error("Please enter Vendor Name!")
         else:
             conn = sqlite3.connect('farm.db')
             c = conn.cursor()
-            c.execute('''
-                INSERT INTO purchases (date, vendor_name, weight, rate, total)
-                VALUES (date('now'), ?, ?, ?, ?)
-            ''', (vendor_name, purchase_weight, purchase_rate, purchase_total))
+            c.execute("INSERT INTO purchases (date, vendor_name, live_weight, rate, total) VALUES (date('now'), ?, ?, ?, ?)",
+                      (vendor_name, live_weight_in, buy_rate, purchase_total))
             conn.commit()
             conn.close()
-            st.success(f"Purchase from {vendor_name} saved successfully! 🎉")
+            st.success(f"Successfully recorded purchase from {vendor_name}! 🎉")
 
-# TAB 3: REPORTS & RECORDS
-with tab3:
-    st.header("📊 Transaction History & Reports")
+# ---------------------------------------------------------
+# TAB 2: CUSTOMER SALE & SKINLESS CONVERSION
+# ---------------------------------------------------------
+with tab2:
+    st.header("🛒 Customer Sale & Processing")
     
-    st.subheader("🛒 Customer Sales History")
+    col_s1, col_s2 = st.columns(2)
+    
+    with col_s1:
+        customer_name = st.text_input("Customer Name", value="Cash Customer")
+        sale_type = st.selectbox("Sale Type", ["Skinless Chicken", "Live Chicken", "Parts / Eggs"])
+        
+        if sale_type == "Skinless Chicken":
+            live_wt = st.number_input("Initial Live Weight (Kg)", min_value=0.1, value=2.0, step=0.1)
+            # Auto 30% skinless yield calculation (approx 70% remains)
+            default_cleaned = round(live_wt * 0.70, 2)
+            final_weight = st.number_input("Final Skinless Weight (Kg)", min_value=0.05, value=default_cleaned, step=0.05)
+            st.caption(f"💡 Weight Loss in Cleaning: {round(live_wt - final_weight, 2)} Kg")
+        else:
+            final_weight = st.number_input("Weight (Kg)", min_value=0.1, value=2.0, step=0.1)
+
+    with col_s2:
+        sell_rate = st.number_input("Selling Rate per Kg (Rs)", min_value=1.0, value=260.0, step=5.0)
+        sale_total = final_weight * sell_rate
+        st.subheader(f"Total Bill: Rs. {sale_total:.2f}")
+        payment_method = st.radio("Payment Method", ["Cash", "Online/Bank Transfer", "Credit (Kadan)"])
+
+    if st.button("Save Sale Bill", use_container_width=True):
+        conn = sqlite3.connect('farm.db')
+        c = conn.cursor()
+        c.execute("INSERT INTO sales (date, customer_name, item_type, weight, rate, total, payment_method) VALUES (date('now'), ?, ?, ?, ?, ?, ?)",
+                  (customer_name, sale_type, final_weight, sell_rate, sale_total, payment_method))
+        conn.commit()
+        conn.close()
+        st.success(f"Bill Saved for {customer_name}! Total: Rs.{sale_total:.2f} 🎉")
+
+# ---------------------------------------------------------
+# TAB 3: DAILY EXPENSES
+# ---------------------------------------------------------
+with tab3:
+    st.header("💸 Add Business Expenses")
+    
+    col_e1, col_e2 = st.columns(2)
+    
+    with col_e1:
+        exp_category = st.selectbox("Expense Category", ["Transport / Fuel", "Shop Rent", "Electricity / Water", "Salary / Labor", "Feed / Bags", "Other Expenses"])
+        exp_amount = st.number_input("Amount Paid (Rs)", min_value=1.0, value=100.0, step=10.0)
+        
+    with col_e2:
+        exp_note = st.text_input("Note / Details", placeholder="e.g. Van transport charge")
+
+    if st.button("Save Expense", use_container_width=True):
+        conn = sqlite3.connect('farm.db')
+        c = conn.cursor()
+        c.execute("INSERT INTO expenses (date, category, amount, note) VALUES (date('now'), ?, ?, ?)",
+                  (exp_category, exp_amount, exp_note))
+        conn.commit()
+        conn.close()
+        st.success("Expense recorded successfully! 💸")
+
+# ---------------------------------------------------------
+# TAB 4: PROFIT & LOSS REPORT
+# ---------------------------------------------------------
+with tab4:
+    st.header("📈 Overall Profit & Loss Summary")
+    
     conn = sqlite3.connect('farm.db')
     c = conn.cursor()
-    c.execute("SELECT date, customer_name, item_name, live_weight, cleaned_weight, rate, total, payment_method FROM sales ORDER BY id DESC")
-    sales_data = c.fetchall()
     
-    if sales_data:
-        st.dataframe(
-            sales_data,
-            column_config={
-                "0": "Date",
-                "1": "Customer Name",
-                "2": "Item Type",
-                "3": "Live Wt (Kg)",
-                "4": "Cleaned Wt (Kg)",
-                "5": "Rate (Rs)",
-                "6": "Total (Rs)",
-                "7": "Payment"
-            },
-            use_container_width=True
-        )
-    else:
-        st.info("No sales records found.")
-
-    st.markdown("---")
+    # Calculate Total Sales
+    c.execute("SELECT SUM(total) FROM sales")
+    total_sales = c.fetchone()[0] or 0.0
     
-    st.subheader("🚚 Vendor Purchase History")
-    c.execute("SELECT date, vendor_name, weight, rate, total FROM purchases ORDER BY id DESC")
-    purchase_data = c.fetchall()
+    # Calculate Total Purchases
+    c.execute("SELECT SUM(total) FROM purchases")
+    total_purchases = c.fetchone()[0] or 0.0
+    
+    # Calculate Total Expenses
+    c.execute("SELECT SUM(amount) FROM expenses")
+    total_expenses = c.fetchone()[0] or 0.0
+    
     conn.close()
     
-    if purchase_data:
-        st.dataframe(
-            purchase_data,
-            column_config={
-                "0": "Date",
-                "1": "Vendor Name",
-                "2": "Weight Bought (Kg)",
-                "3": "Buy Rate (Rs)",
-                "4": "Total Paid (Rs)"
-            },
-            use_container_width=True
-        )
+    # Net Profit Calculation
+    net_profit = total_sales - (total_purchases + total_expenses)
+    
+    # Metrics Cards
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("🛒 Total Sales", f"Rs. {total_sales:.2f}")
+    m2.metric("🚚 Total Chicken Purchases", f"Rs. {total_purchases:.2f}")
+    m3.metric("💸 Total Expenses", f"Rs. {total_expenses:.2f}")
+    
+    if net_profit >= 0:
+        m4.metric("🎉 Net Profit", f"Rs. {net_profit:.2f}", delta=f"+Rs.{net_profit:.2f}")
     else:
-        st.info("No vendor purchase records found.")
+        m4.metric("⚠️ Net Loss", f"Rs. {net_profit:.2f}", delta=f"Rs.{net_profit:.2f}")
+        
+    st.markdown("---")
+    st.subheader("📜 Detailed Transaction Tables")
+    
+    show_table = st.radio("View Records For:", ["Sales History", "Purchase History", "Expense History"])
+    
+    conn = sqlite3.connect('farm.db')
+    c = conn.cursor()
+    
+    if show_table == "Sales History":
+        c.execute("SELECT date, customer_name, item_type, weight, rate, total, payment_method FROM sales ORDER BY id DESC")
+        st.dataframe(c.fetchall(), use_container_width=True)
+    elif show_table == "Purchase History":
+        c.execute("SELECT date, vendor_name, live_weight, rate, total FROM purchases ORDER BY id DESC")
+        st.dataframe(c.fetchall(), use_container_width=True)
+    else:
+        c.execute("SELECT date, category, amount, note FROM expenses ORDER BY id DESC")
+        st.dataframe(c.fetchall(), use_container_width=True)
+        
+    conn.close()
