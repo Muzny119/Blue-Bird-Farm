@@ -3,12 +3,14 @@ import streamlit as st
 
 st.set_page_config(page_title="Blue Bird Farm - Accounting", page_icon="🐔", layout="wide")
 
-# Database Setup
+# Database Setup (Using fresh database name to fix schema mismatch)
+DB_FILE = 'farm_v2.db'
+
 def init_db():
-    conn = sqlite3.connect('farm.db')
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     
-    # 1. Vendor Purchases
+    # 1. Vendor Purchases Table
     c.execute('''
         CREATE TABLE IF NOT EXISTS purchases (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -20,7 +22,7 @@ def init_db():
         )
     ''')
     
-    # 2. Customer Sales
+    # 2. Customer Sales Table
     c.execute('''
         CREATE TABLE IF NOT EXISTS sales (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -34,7 +36,7 @@ def init_db():
         )
     ''')
     
-    # 3. Expenses
+    # 3. Expenses Table
     c.execute('''
         CREATE TABLE IF NOT EXISTS expenses (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -50,7 +52,7 @@ def init_db():
 
 init_db()
 
-st.title("🐔 Blue Bird Farm - Complete Business Dashboard")
+st.title("🐔 Blue Bird Farm - Accounting System")
 
 # Navigation Tabs
 tab1, tab2, tab3, tab4 = st.tabs([
@@ -80,7 +82,7 @@ with tab1:
         if vendor_name.strip() == "":
             st.error("Please enter Vendor Name!")
         else:
-            conn = sqlite3.connect('farm.db')
+            conn = sqlite3.connect(DB_FILE)
             c = conn.cursor()
             c.execute("INSERT INTO purchases (date, vendor_name, live_weight, rate, total) VALUES (date('now'), ?, ?, ?, ?)",
                       (vendor_name, live_weight_in, buy_rate, purchase_total))
@@ -102,10 +104,9 @@ with tab2:
         
         if sale_type == "Skinless Chicken":
             live_wt = st.number_input("Initial Live Weight (Kg)", min_value=0.1, value=2.0, step=0.1)
-            # Auto 30% skinless yield calculation (approx 70% remains)
             default_cleaned = round(live_wt * 0.70, 2)
             final_weight = st.number_input("Final Skinless Weight (Kg)", min_value=0.05, value=default_cleaned, step=0.05)
-            st.caption(f"💡 Weight Loss in Cleaning: {round(live_wt - final_weight, 2)} Kg")
+            st.caption(f"💡 Cleaning Weight Loss: {round(live_wt - final_weight, 2)} Kg")
         else:
             final_weight = st.number_input("Weight (Kg)", min_value=0.1, value=2.0, step=0.1)
 
@@ -116,7 +117,7 @@ with tab2:
         payment_method = st.radio("Payment Method", ["Cash", "Online/Bank Transfer", "Credit (Kadan)"])
 
     if st.button("Save Sale Bill", use_container_width=True):
-        conn = sqlite3.connect('farm.db')
+        conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
         c.execute("INSERT INTO sales (date, customer_name, item_type, weight, rate, total, payment_method) VALUES (date('now'), ?, ?, ?, ?, ?, ?)",
                   (customer_name, sale_type, final_weight, sell_rate, sale_total, payment_method))
@@ -140,7 +141,7 @@ with tab3:
         exp_note = st.text_input("Note / Details", placeholder="e.g. Van transport charge")
 
     if st.button("Save Expense", use_container_width=True):
-        conn = sqlite3.connect('farm.db')
+        conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
         c.execute("INSERT INTO expenses (date, category, amount, note) VALUES (date('now'), ?, ?, ?)",
                   (exp_category, exp_amount, exp_note))
@@ -154,30 +155,30 @@ with tab3:
 with tab4:
     st.header("📈 Overall Profit & Loss Summary")
     
-    conn = sqlite3.connect('farm.db')
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     
-    # Calculate Total Sales
+    # Total Sales
     c.execute("SELECT SUM(total) FROM sales")
     total_sales = c.fetchone()[0] or 0.0
     
-    # Calculate Total Purchases
+    # Total Purchases
     c.execute("SELECT SUM(total) FROM purchases")
     total_purchases = c.fetchone()[0] or 0.0
     
-    # Calculate Total Expenses
+    # Total Expenses
     c.execute("SELECT SUM(amount) FROM expenses")
     total_expenses = c.fetchone()[0] or 0.0
     
     conn.close()
     
-    # Net Profit Calculation
+    # Net Profit
     net_profit = total_sales - (total_purchases + total_expenses)
     
-    # Metrics Cards
+    # Metrics Display
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("🛒 Total Sales", f"Rs. {total_sales:.2f}")
-    m2.metric("🚚 Total Chicken Purchases", f"Rs. {total_purchases:.2f}")
+    m2.metric("🚚 Total Purchases", f"Rs. {total_purchases:.2f}")
     m3.metric("💸 Total Expenses", f"Rs. {total_expenses:.2f}")
     
     if net_profit >= 0:
@@ -186,11 +187,11 @@ with tab4:
         m4.metric("⚠️ Net Loss", f"Rs. {net_profit:.2f}", delta=f"Rs.{net_profit:.2f}")
         
     st.markdown("---")
-    st.subheader("📜 Detailed Transaction Tables")
+    st.subheader("📜 Transaction Records")
     
     show_table = st.radio("View Records For:", ["Sales History", "Purchase History", "Expense History"])
     
-    conn = sqlite3.connect('farm.db')
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     
     if show_table == "Sales History":
