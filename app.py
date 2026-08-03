@@ -21,7 +21,7 @@ def init_db():
         )
     ''')
     
-    # 2. Skinless Processing Logs (Batch Processing)
+    # 2. Skinless Processing Logs
     c.execute('''
         CREATE TABLE IF NOT EXISTS processing (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -62,15 +62,16 @@ def init_db():
 
 init_db()
 
-st.title("🐔 Blue Bird Farm - Accounting & Inventory")
+st.title("🐔 Blue Bird Farm - Accounting & Management")
 
-# 4 Sequential Tabs
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+# 6 Navigation Tabs
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "🚚 1. Vendor Purchase", 
     "🔪 2. Skinless Conversion", 
     "🛒 3. Customer Sale", 
     "💸 4. Daily Expenses", 
-    "📈 5. Profit & Loss"
+    "📈 5. Profit & Loss",
+    "✏️ 6. Manage & Edit Entries"
 ])
 
 # ---------------------------------------------------------
@@ -112,7 +113,6 @@ with tab2:
     
     with col_p1:
         live_used = st.number_input("Live Weight Taken for Cleaning (Kg)", min_value=0.1, value=10.0, step=0.5)
-        # Standard approx 70% yield
         default_skinless = round(live_used * 0.70, 2)
         skinless_produced = st.number_input("Actual Skinless Chicken Obtained (Kg)", min_value=0.1, value=default_skinless, step=0.1)
     
@@ -193,7 +193,6 @@ with tab5:
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     
-    # Financial Aggregates
     c.execute("SELECT SUM(total) FROM sales")
     total_sales = c.fetchone()[0] or 0.0
     
@@ -203,7 +202,6 @@ with tab5:
     c.execute("SELECT SUM(amount) FROM expenses")
     total_expenses = c.fetchone()[0] or 0.0
     
-    # Processing Aggregates
     c.execute("SELECT SUM(live_weight_used), SUM(skinless_weight_produced), SUM(waste_loss) FROM processing")
     proc_summary = c.fetchone()
     total_live_proc = proc_summary[0] or 0.0
@@ -214,7 +212,6 @@ with tab5:
     
     net_profit = total_sales - (total_purchases + total_expenses)
     
-    # Metrics Display
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("🛒 Total Sales", f"Rs. {total_sales:.2f}")
     m2.metric("🚚 Total Purchases", f"Rs. {total_purchases:.2f}")
@@ -231,26 +228,123 @@ with tab5:
     p1.metric("🐔 Total Live Chicken Cleaned", f"{total_live_proc} Kg")
     p2.metric("🥩 Total Skinless Obtained", f"{total_skinless_obtained} Kg")
     p3.metric("🗑️ Total Cleaning Loss", f"{total_waste_loss} Kg")
-    
-    st.markdown("---")
-    st.subheader("📜 Detailed Records")
-    
-    show_table = st.radio("View History For:", ["Sales History", "Skinless Processing Logs", "Vendor Purchase History", "Expense History"])
-    
+
+# ---------------------------------------------------------
+# TAB 6: EDIT & DELETE ENTRIES (NEW FEATURE)
+# ---------------------------------------------------------
+with tab6:
+    st.header("✏️ Edit or Delete Previous Entries")
+    manage_option = st.selectbox("Select Record Type to Edit / Delete:", ["Customer Sales", "Vendor Purchases", "Expenses"])
+
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    
-    if show_table == "Sales History":
-        c.execute("SELECT date, customer_name, item_type, weight, rate, total, payment_method FROM sales ORDER BY id DESC")
-        st.dataframe(c.fetchall(), use_container_width=True)
-    elif show_table == "Skinless Processing Logs":
-        c.execute("SELECT date, live_weight_used, skinless_weight_produced, waste_loss FROM processing ORDER BY id DESC")
-        st.dataframe(c.fetchall(), use_container_width=True)
-    elif show_table == "Vendor Purchase History":
-        c.execute("SELECT date, vendor_name, live_weight, rate, total FROM purchases ORDER BY id DESC")
-        st.dataframe(c.fetchall(), use_container_width=True)
-    else:
-        c.execute("SELECT date, category, amount, note FROM expenses ORDER BY id DESC")
-        st.dataframe(c.fetchall(), use_container_width=True)
+
+    if manage_option == "Customer Sales":
+        c.execute("SELECT id, date, customer_name, item_type, weight, rate, total, payment_method FROM sales ORDER BY id DESC")
+        records = c.fetchall()
         
+        if records:
+            options = {f"ID #{r[0]} - {r[1]} - {r[2]} (Rs.{r[6]})": r for r in records}
+            selected = st.selectbox("Choose Sale Entry to Edit/Delete:", list(options.keys()))
+            data = options[selected]
+            
+            st.markdown("---")
+            col_e1, col_e2 = st.columns(2)
+            with col_e1:
+                edit_cust = st.text_input("Customer Name", value=data[2])
+                edit_item = st.selectbox("Item", ["Skinless Chicken", "Live Chicken", "Chicken Parts / Other"], index=0)
+                edit_wt = st.number_input("Weight (Kg)", value=float(data[4]), step=0.1)
+            with col_e2:
+                edit_rate = st.number_input("Rate (Rs)", value=float(data[5]), step=5.0)
+                edit_pay = st.radio("Payment Method", ["Cash", "Online/Bank Transfer", "Credit (Kadan)"], index=0)
+                new_total = edit_wt * edit_rate
+                st.caption(f"Updated Total: Rs. {new_total:.2f}")
+
+            c1, c2 = st.columns(2)
+            with c1:
+                if st.button("💾 Update Sale Record", use_container_width=True):
+                    c.execute("UPDATE sales SET customer_name=?, item_type=?, weight=?, rate=?, total=?, payment_method=? WHERE id=?",
+                              (edit_cust, edit_item, edit_wt, edit_rate, new_total, edit_pay, data[0]))
+                    conn.commit()
+                    st.success("Sale entry updated successfully! 🎉")
+                    st.rerun()
+            with c2:
+                if st.button("🗑️ Delete Sale Record", type="primary", use_container_width=True):
+                    c.execute("DELETE FROM sales WHERE id=?", (data[0],))
+                    conn.commit()
+                    st.warning("Sale entry deleted! 🗑️")
+                    st.rerun()
+        else:
+            st.info("No Sales records found.")
+
+    elif manage_option == "Vendor Purchases":
+        c.execute("SELECT id, date, vendor_name, live_weight, rate, total FROM purchases ORDER BY id DESC")
+        records = c.fetchall()
+        
+        if records:
+            options = {f"ID #{r[0]} - {r[1]} - {r[2]} (Rs.{r[5]})": r for r in records}
+            selected = st.selectbox("Choose Purchase Entry to Edit/Delete:", list(options.keys()))
+            data = options[selected]
+            
+            st.markdown("---")
+            col_p1, col_p2 = st.columns(2)
+            with col_p1:
+                edit_vendor = st.text_input("Vendor Name", value=data[2])
+                edit_lwt = st.number_input("Live Weight (Kg)", value=float(data[3]), step=1.0)
+            with col_p2:
+                edit_brate = st.number_input("Purchase Rate (Rs)", value=float(data[4]), step=5.0)
+                new_ptotal = edit_lwt * edit_brate
+                st.caption(f"Updated Total: Rs. {new_ptotal:.2f}")
+
+            c1, c2 = st.columns(2)
+            with c1:
+                if st.button("💾 Update Purchase Record", use_container_width=True):
+                    c.execute("UPDATE purchases SET vendor_name=?, live_weight=?, rate=?, total=? WHERE id=?",
+                              (edit_vendor, edit_lwt, edit_brate, new_ptotal, data[0]))
+                    conn.commit()
+                    st.success("Purchase entry updated! 🎉")
+                    st.rerun()
+            with c2:
+                if st.button("🗑️ Delete Purchase Record", type="primary", use_container_width=True):
+                    c.execute("DELETE FROM purchases WHERE id=?", (data[0],))
+                    conn.commit()
+                    st.warning("Purchase entry deleted! 🗑️")
+                    st.rerun()
+        else:
+            st.info("No Purchase records found.")
+
+    else: # Expenses
+        c.execute("SELECT id, date, category, amount, note FROM expenses ORDER BY id DESC")
+        records = c.fetchall()
+        
+        if records:
+            options = {f"ID #{r[0]} - {r[1]} - {r[2]} (Rs.{r[3]})": r for r in records}
+            selected = st.selectbox("Choose Expense Entry to Edit/Delete:", list(options.keys()))
+            data = options[selected]
+            
+            st.markdown("---")
+            col_ex1, col_ex2 = st.columns(2)
+            with col_ex1:
+                edit_cat = st.selectbox("Category", ["Transport / Fuel", "Shop Rent", "Electricity / Water", "Salary / Labor", "Feed / Bags", "Other Expenses"])
+                edit_amt = st.number_input("Amount (Rs)", value=float(data[3]), step=10.0)
+            with col_ex2:
+                edit_note = st.text_input("Note", value=data[4] or "")
+
+            c1, c2 = st.columns(2)
+            with c1:
+                if st.button("💾 Update Expense Record", use_container_width=True):
+                    c.execute("UPDATE expenses SET category=?, amount=?, note=? WHERE id=?",
+                              (edit_cat, edit_amt, edit_note, data[0]))
+                    conn.commit()
+                    st.success("Expense entry updated! 🎉")
+                    st.rerun()
+            with c2:
+                if st.button("🗑️ Delete Expense Record", type="primary", use_container_width=True):
+                    c.execute("DELETE FROM expenses WHERE id=?", (data[0],))
+                    conn.commit()
+                    st.warning("Expense entry deleted! 🗑️")
+                    st.rerun()
+        else:
+            st.info("No Expense records found.")
+
     conn.close()
