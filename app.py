@@ -1,4 +1,21 @@
-import streamlit as st
+import sqlite3
+
+# Auto-create database table if not exists
+conn = sqlite3.connect('farm.db')
+c = conn.cursor()
+c.execute('''
+    CREATE TABLE IF NOT EXISTS sales (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date TEXT,
+        item_name TEXT,
+        weight REAL,
+        rate REAL,
+        total REAL,
+        payment_method TEXT
+    )
+''')
+conn.commit()
+conn.close()import streamlit as st
 import sqlite3
 import pandas as pd
 from datetime import datetime
